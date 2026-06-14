@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+{% block title %}Graph Explorer — CineGraph{% endblock %}
+
+{% block content %}
+<div class="bg-white border-b border-gray-100 py-6">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="flex flex-col md:flex-row md:items-center gap-4">
+
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">🕸️ Knowledge Graph Explorer</h1>
+        <p class="text-gray-500 text-sm mt-0.5">Eksplorasi hubungan antar entitas secara interaktif</p>
+      </div>
+
+      <!-- Search -->
+      <div class="flex gap-2 flex-1 md:max-w-xl md:ml-auto">
+        <select id="nodeType"
+                class="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700
+                       focus:outline-none focus:border-primary-400 bg-white shrink-0">
+          <option value="Movie">🎬 Film</option>
+          <option value="Actor">🎭 Aktor</option>
+          <option value="Director">🎥 Sutradara</option>
+          <option value="Genre">🏷️ Genre</option>
+        </select>
+        <div class="relative flex-1">
+          <input id="searchInput" type="text" placeholder="Cari node..."
+                 autocomplete="off"
+                 class="w-full px-4 py-2 border border-gray-200 rounded-xl text-sm
+                        focus:outline-none focus:border-primary-400 transition-colors">
+          <div id="searchAC"
+               class="dropdown-auto absolute top-full left-0 right-0 mt-1 bg-white
+                      border border-gray-200 rounded-xl shadow-xl z-50 hidden overflow-hidden">
+          </div>
+        </div>
+        <button id="searchBtn"
+                class="bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium
+                       px-4 py-2 rounded-xl transition-colors shrink-0">
+          Tampilkan
+        </button>
+        <button id="resetBtn"
+                class="border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm
+                       font-medium px-4 py-2 rounded-xl transition-colors shrink-0">
+          Reset
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="flex" style="height: calc(100vh - 185px);">
+
+  <!-- Graph Canvas -->
+  <div id="graph-canvas" class="flex-1 bg-gray-50 relative">
+    <!-- Loading overlay -->
+    <div id="loadingOverlay"
+         class="absolute inset-0 flex items-center justify-center bg-gray-50 z-10">
+      <div class="text-center">
+        <div class="w-12 h-12 border-4 border-primary-200 border-t-primary-600
+                    rounded-full animate-spin mx-auto mb-3"></div>
+        <p class="text-gray-500 text-sm">Memuat graph...</p>
+      </div>
+    </div>
+    <div id="vis-container" class="w-full h-full"></div>
+  </div>
+
+  <!-- Side Panel -->
+  <div class="w-64 bg-white border-l border-gray-200 flex flex-col shrink-0 overflow-y-auto">
+
+    <!-- Stats -->
+    <div class="p-4 border-b border-gray-100">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Statistik</p>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-gray-50 rounded-lg p-2 text-center">
+          <p id="statNodes" class="text-lg font-bold text-gray-900">0</p>
+          <p class="text-xs text-gray-500">Node</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-2 text-center">
+          <p id="statEdges" class="text-lg font-bold text-gray-900">0</p>
+          <p class="text-xs text-gray-500">Relasi</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="p-4 border-b border-gray-100">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Legend</p>
+      <div class="space-y-2">
+        {% for label, color, icon in [
+          ('Film',      '#3b82f6', '🎬'),
+          ('Aktor',     '#10b981', '🎭'),
+          ('Sutradara', '#f59e0b', '🎥'),
+          ('Genre',     '#8b5cf6', '🏷️'),
+          ('Keyword',   '#6b7280', '🔑'),
+        ] %}
+        <div class="flex items-center gap-2">
+          <div class="w-3 h-3 rounded-full shrink-0" style="background:{{ color }}"></div>
+          <span class="text-xs text-gray-600">{{ icon }} {{ label }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Filter toggles -->
+    <div class="p-4 border-b border-gray-100">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+        Tampilkan Tipe
+      </p>
+      <div class="space-y-2" id="filterToggles">
+        {% for val, label, color in [
+          ('Movie',    'Film',      '#3b82f6'),
+          ('Actor',    'Aktor',     '#10b981'),
+          ('Director', 'Sutradara', '#f59e0b'),
+          ('Genre',    'Genre',     '#8b5cf6'),
+          ('Keyword',  'Keyword',   '#6b7280'),
+        ] %}
+        <label class="flex items-center gap-2 cursor-pointer group">
+          <input type="checkbox" value="{{ val }}" checked
+                 class="toggle-filter w-4 h-4 rounded accent-primary-600">
+          <div class="w-2.5 h-2.5 rounded-full shrink-0"
+               style="background:{{ color }}"></div>
+          <span class="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
+            {{ label }}
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Selected node info -->
+    <div class="p-4 flex-1">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+        Node Terpilih
+      </p>
+      <div id="nodeInfo" class="text-center py-6 text-gray-400">
+        <div class="text-3xl mb-2">👆</div>
+        <p class="text-xs">Klik node untuk detail</p>
+      </div>
+    </div>
+
+    <!-- Controls hint -->
+    <div class="p-4 border-t border-gray-100 bg-gray-50">
+      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Kontrol</p>
+      <ul class="text-xs text-gray-500 space-y-1">
+        <li>🖱️ Scroll = zoom</li>
+        <li>🖱️ Drag canvas = geser</li>
+        <li>👆 Klik node = load tetangga</li>
+        <li>✌️ Drag node = pindahkan</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<script>
+const COLORS = {
+  Movie:    { background:'#3b82f6', border:'#1d4ed8', highlight:{background:'#60a5fa',border:'#2563eb'} },
+  Actor:    { background:'#10b981', border:'#059669', highlight:{background:'#34d399',border:'#10b981'} },
+  Director: { background:'#f59e0b', border:'#d97706', highlight:{background:'#fbbf24',border:'#f59e0b'} },
+  Genre:    { background:'#8b5cf6', border:'#7c3aed', highlight:{background:'#a78bfa',border:'#8b5cf6'} },
+  Keyword:  { background:'#6b7280', border:'#4b5563', highlight:{background:'#9ca3af',border:'#6b7280'} },
+};
+const AC_ENDPOINTS = { Movie:'/cari', Actor:'/cari-aktor', Director:'/cari-sutradara', Genre:null };
+const DETAIL_URLS  = {
+  Movie:    t => `/film?judul=${encodeURIComponent(t)}`,
+  Actor:    t => `/aktor?nama=${encodeURIComponent(t)}`,
+  Director: t => `/sutradara?nama=${encodeURIComponent(t)}`,
+  Genre:    t => `/database/film?genre=${encodeURIComponent(t)}`,
+  Keyword:  _  => `/database/film`,
+};
+const TYPE_MAP  = { M:'Movie', A:'Actor', D:'Director', G:'Genre', K:'Keyword' };
+const EMOJI_MAP = { M:'🎬', A:'🎭', D:'🎥', G:'🏷️', K:'🔑' };
+
+let network      = null;
+let allNodes     = new vis.DataSet();
+let allEdges     = new vis.DataSet();
+let hiddenGroups = new Set();
+let loadTimer    = null;
+
+// ── Overlay helpers ───────────────────────────────────────────
+const overlay = document.getElementById('loadingOverlay');
+function showOverlay(msg = 'Memuat graph...') {
+  overlay.querySelector('p').textContent = msg;
+  overlay.classList.remove('hidden');
+}
+function hideOverlay() { overlay.classList.add('hidden'); }
+
+// ── Init network (called once, with data already in DataSets) ─
+function initNetwork() {
+  const container = document.getElementById('vis-container');
+  network = new vis.Network(container, { nodes: allNodes, edges: allEdges }, {
+    physics: {
+      enabled: true,
+      solver: 'barnesHut',           // faster than forceAtlas2Based
+      barnesHut: {
+        gravitationalConstant: -3000,
+        centralGravity: 0.25,
+        springLength: 160,
+        springConstant: 0.04,
+        damping: 0.12,
+        avoidOverlap: 0.1,
+      },
+      stabilization: { enabled: true, iterations: 60, updateInterval: 10 },
+    },
+    nodes: {
+      shape: 'dot', size: 18, borderWidth: 2,
+      font: { size: 11, color: '#fff', face: 'Inter, sans-serif' },
+    },
+    edges: {
+      font: { size: 9, color: '#9ca3af', face: 'Inter, sans-serif', align: 'middle' },
+      color: { color: '#d1d5db', highlight: '#6b7280' },
+      smooth: { enabled: true, type: 'dynamic' },
+      arrows: { to: { enabled: true, scaleFactor: 0.45 } },
+    },
+    interaction: { hover: true, tooltipDelay: 200, hideEdgesOnDrag: true },
+  });
+
+  // Hide overlay once stabilization finishes (fires reliably on first load)
+  network.on('stabilizationIterationsDone', () => {
+    network.setOptions({ physics: { enabled: false } }); // stop physics after settle
+    hideOverlay();
+  });
+
+  network.on('click', params => {
+    if (!params.nodes.length) return;
+    const nid  = params.nodes[0];
+    const node = allNodes.get(nid);
+    if (!node) return;
+    showNodeInfo(node);
+    const [pfx, ...rest] = nid.split(':');
+    const type = TYPE_MAP[pfx];
+    if (type && type !== 'Keyword') expandNode(rest.join(':'), type);
+  });
+
+  network.on('doubleClick', params => {
+    if (!params.nodes.length) return;
+    const [pfx, ...rest] = params.nodes[0].split(':');
+    const type = TYPE_MAP[pfx];
+    if (DETAIL_URLS[type]) window.open(DETAIL_URLS[type](rest.join(':')), '_blank');
+  });
+}
+
+// ── Load graph (full replace) ─────────────────────────────────
+async function loadGraph(q, type) {
+  showOverlay('Mengambil data...');
+  try {
+    const res  = await fetch(`/api/graph?q=${encodeURIComponent(q)}&type=${type}`);
+    const data = await res.json();
+
+    allNodes.clear();
+    allEdges.clear();
+
+    allNodes.add(data.nodes.map(n => ({
+      ...n,
+      color: COLORS[n.group] || COLORS.Keyword,
+      hidden: hiddenGroups.has(n.group),
+      size: { Movie:22, Genre:20 }[n.group] || 16,
+    })));
+    allEdges.add(data.edges);
+    updateStats();
+
+    if (!network) {
+      initNetwork();  // first time: init triggers its own stabilization → hides overlay
+    } else {
+      // re-enable physics so new layout re-settles, then auto-hide
+      network.setOptions({ physics: { enabled: true } });
+      network.stabilize(60);
+      // stabilizationIterationsDone will fire and hide overlay
+    }
+  } catch(e) {
+    hideOverlay();
+    console.error(e);
+  }
+}
+
+// ── Expand node in place (merge, no full reset) ───────────────
+async function expandNode(q, type) {
+  showOverlay('Memuat tetangga...');
+  try {
+    const res  = await fetch(`/api/graph?q=${encodeURIComponent(q)}&type=${type}`);
+    const data = await res.json();
+
+    const edgeSet = new Set(allEdges.getIds().map(id => {
+      const e = allEdges.get(id);
+      return `${e.from}|${e.to}|${e.label}`;
+    }));
+
+    const newNodes = data.nodes
+      .filter(n => !allNodes.get(n.id))
+      .map(n => ({
+        ...n,
+        color: COLORS[n.group] || COLORS.Keyword,
+        hidden: hiddenGroups.has(n.group),
+        size: { Movie:22, Genre:20 }[n.group] || 16,
+      }));
+    const newEdges = data.edges.filter(e =>
+      !edgeSet.has(`${e.from}|${e.to}|${e.label}`)
+    );
+
+    if (newNodes.length) allNodes.add(newNodes);
+    if (newEdges.length) allEdges.add(newEdges);
+    updateStats();
+  } finally {
+    // For expand, just hide quickly — physics will nudge nodes gently
+    clearTimeout(loadTimer);
+    loadTimer = setTimeout(hideOverlay, 350);
+  }
+}
+
+function updateStats() {
+  document.getElementById('statNodes').textContent = allNodes.length;
+  document.getElementById('statEdges').textContent = allEdges.length;
+}
+
+function showNodeInfo(node) {
+  const [pfx, ...rest] = node.id.split(':');
+  const name  = rest.join(':');
+  const type  = TYPE_MAP[pfx] || '';
+  const emoji = EMOJI_MAP[pfx] || '●';
+  const url   = DETAIL_URLS[type] ? DETAIL_URLS[type](name) : null;
+  const c     = (COLORS[type] || COLORS.Keyword).background;
+
+  document.getElementById('nodeInfo').innerHTML = `
+    <div class="text-2xl mb-2">${emoji}</div>
+    <p class="text-sm font-semibold text-gray-800 mb-1 break-words">${name}</p>
+    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium mb-3"
+          style="background:${c}22;color:${c}">${type}</span>
+    ${url ? `<br><a href="${url}" target="_blank"
+        class="text-xs text-primary-600 hover:text-primary-700 font-medium">
+        Lihat detail →</a>` : ''}
+    <p class="text-xs text-gray-400 mt-3">Klik 2× untuk buka halaman detail</p>`;
+}
+
+// ── Search & autocomplete ─────────────────────────────────────
+const searchInput = document.getElementById('searchInput');
+const searchAC    = document.getElementById('searchAC');
+const nodeType    = document.getElementById('nodeType');
+let acTimer = null;
+
+searchInput.addEventListener('input', () => {
+  clearTimeout(acTimer);
+  acTimer = setTimeout(async () => {
+    const val = searchInput.value.trim();
+    const ep  = AC_ENDPOINTS[nodeType.value];
+    if (!ep || val.length < 2) { searchAC.classList.add('hidden'); return; }
+    const data = await fetch(`${ep}?q=${encodeURIComponent(val)}`).then(r => r.json());
+    if (!data.length) { searchAC.classList.add('hidden'); return; }
+    searchAC.innerHTML = data.map(t =>
+      `<button onclick="selectAC(${JSON.stringify(t)})"
+               class="w-full text-left px-4 py-2.5 text-sm text-gray-700
+                      hover:bg-primary-50 hover:text-primary-700 transition-colors">
+         ${t}</button>`
+    ).join('');
+    searchAC.classList.remove('hidden');
+  }, 200);
+});
+
+function selectAC(name) {
+  searchInput.value = name;
+  searchAC.classList.add('hidden');
+}
+document.addEventListener('click', e => {
+  if (!searchInput.contains(e.target) && !searchAC.contains(e.target))
+    searchAC.classList.add('hidden');
+});
+
+document.getElementById('searchBtn').addEventListener('click', () => {
+  const q = searchInput.value.trim();
+  if (q) loadGraph(q, nodeType.value);
+});
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('searchBtn').click();
+});
+document.getElementById('resetBtn').addEventListener('click', () => {
+  searchInput.value = '';
+  loadGraph('', 'Movie');
+});
+
+// ── Filter toggles ────────────────────────────────────────────
+document.querySelectorAll('.toggle-filter').forEach(cb => {
+  cb.addEventListener('change', () => {
+    if (cb.checked) hiddenGroups.delete(cb.value);
+    else            hiddenGroups.add(cb.value);
+    allNodes.forEach(n =>
+      allNodes.update({ id: n.id, hidden: hiddenGroups.has(n.group) })
+    );
+    updateStats();
+  });
+});
+
+// ── Boot ──────────────────────────────────────────────────────
+loadGraph('', 'Movie');
+</script>
+{% endblock %}

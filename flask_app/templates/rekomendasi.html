@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Rekomendasi — CineGraph{% endblock %}
+
+{% block content %}
+
+<div class="bg-white border-b border-gray-100 py-14">
+  <div class="max-w-3xl mx-auto px-6 text-center">
+    <h1 class="text-4xl font-extrabold text-gray-900 mb-3">Rekomendasi Film</h1>
+    <p class="text-gray-500 mb-10">Masukkan judul film favoritmu dan temukan film serupa berdasarkan relasi Knowledge Graph</p>
+    <form action="/rekomendasi" method="POST" class="flex gap-3 max-w-xl mx-auto">
+      <div class="relative flex-1">
+        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" name="judul" id="rekSearch" autocomplete="off"
+               value="{{ film }}" placeholder="Contoh: Toy Story, The Dark Knight..."
+               class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 focus:border-primary-400 rounded-xl text-gray-800 outline-none transition-colors">
+        <div id="rekAC" class="dropdown-auto absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 hidden overflow-hidden"></div>
+      </div>
+      <button type="submit"
+              class="bg-primary-600 hover:bg-primary-700 text-white font-semibold px-8 py-4 rounded-xl transition-colors">
+        Cari
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if film %}
+<div class="max-w-6xl mx-auto px-6 py-10">
+
+  <!-- Banner: matched ≠ input -->
+  {% if matched_film and matched_film != film %}
+  <div class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 mb-6 text-sm">
+    <span class="text-blue-500">🔍</span>
+    <span class="text-blue-700">
+      Tidak ada kecocokan persis untuk <strong>"{{ film }}"</strong> —
+      menampilkan hasil untuk <strong>"{{ matched_film }}"</strong>
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- Candidate picker: banyak kemungkinan -->
+  {% if candidates %}
+  <div class="bg-white border-2 border-gray-100 rounded-2xl p-8 mb-8">
+    <p class="text-gray-500 text-sm mb-5">
+      Ditemukan <strong>{{ candidates|length }} film</strong> yang mirip dengan
+      <strong>"{{ film }}"</strong>. Pilih yang kamu maksud:
+    </p>
+    <div class="grid sm:grid-cols-2 gap-3">
+      {% for judul in candidates %}
+      <form action="/rekomendasi" method="POST">
+        <input type="hidden" name="judul" value="{{ judul }}">
+        <button type="submit"
+                class="w-full text-left bg-gray-50 hover:bg-primary-50 border border-gray-200
+                       hover:border-primary-300 rounded-xl px-4 py-3 transition-all group">
+          <span class="font-medium text-gray-800 group-hover:text-primary-700
+                       transition-colors text-sm leading-snug">
+            🎬 {{ judul }}
+          </span>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% elif hasil %}
+
+  <div class="flex items-center gap-3 mb-6">
+    <h2 class="text-xl font-bold text-gray-900">
+      Hasil untuk <span class="text-primary-600">"{{ matched_film or film }}"</span>
+    </h2>
+    <span class="bg-primary-100 text-primary-700 text-xs font-bold px-3 py-1 rounded-full">
+      {{ hasil|length }} film
+    </span>
+  </div>
+
+  <!-- Legenda Skor -->
+  <div class="flex flex-wrap gap-3 mb-8">
+    {% for emoji, label, color in [
+      ('🎥','Sutradara ×4','bg-amber-50 text-amber-700 border-amber-200'),
+      ('🎭','Aktor ×3',    'bg-blue-50 text-blue-700 border-blue-200'),
+      ('🏷️','Genre ×2',   'bg-green-50 text-green-700 border-green-200'),
+      ('🔑','Keyword ×1', 'bg-gray-50 text-gray-600 border-gray-200'),
+    ] %}
+    <span class="{{ color }} border text-xs font-medium px-3 py-1.5 rounded-full">{{ emoji }} {{ label }}</span>
+    {% endfor %}
+  </div>
+
+  <div class="grid md:grid-cols-2 gap-4">
+    {% for item in hasil %}
+    <a href="/film?judul={{ item.judul | urlencode }}"
+       class="group bg-white border-2 border-gray-100 hover:border-primary-200 rounded-2xl p-5 transition-all hover:shadow-lg block">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex items-center gap-3">
+          <span class="text-gray-300 font-mono text-sm font-bold">{{ '%02d' % loop.index }}</span>
+          <h3 class="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors leading-snug">
+            {{ item.judul }}
+          </h3>
+        </div>
+        <div class="shrink-0 ml-3 text-center">
+          <span class="block text-xl font-black text-primary-600">{{ item.skor_total }}</span>
+          <span class="text-xs text-gray-400">skor</span>
+        </div>
+      </div>
+
+      <div class="w-full bg-gray-100 rounded-full h-1.5 mb-3">
+        <div class="bg-primary-500 h-1.5 rounded-full"
+             style="width: {{ [item.skor_total * 3, 100] | min }}%"></div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        {% if item.sutradara > 0 %}
+        <span class="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-2.5 py-1 rounded-full">🎥 ×{{ item.sutradara }}</span>
+        {% endif %}
+        {% if item.aktor > 0 %}
+        <span class="bg-blue-50 text-blue-700 border border-blue-200 text-xs px-2.5 py-1 rounded-full">🎭 ×{{ item.aktor }}</span>
+        {% endif %}
+        {% if item.genre > 0 %}
+        <span class="bg-green-50 text-green-700 border border-green-200 text-xs px-2.5 py-1 rounded-full">🏷️ ×{{ item.genre }}</span>
+        {% endif %}
+        {% if item.keyword > 0 %}
+        <span class="bg-gray-50 text-gray-600 border border-gray-200 text-xs px-2.5 py-1 rounded-full">🔑 ×{{ item.keyword }}</span>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-16 text-center">
+    <div class="text-5xl mb-4">😕</div>
+    <p class="text-gray-500 font-medium">
+      Film <strong class="text-gray-800">"{{ film }}"</strong> tidak ditemukan di database.
+    </p>
+    <p class="text-gray-400 text-sm mt-1">Coba periksa ejaan atau gunakan judul berbahasa Inggris.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  setupAC('rekSearch', 'rekAC', '/cari', t => `/film?judul=${encodeURIComponent(t)}`);
+</script>
+{% endblock %}

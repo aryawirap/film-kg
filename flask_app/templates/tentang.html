@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Tentang — CineGraph{% endblock %}
+
+{% block content %}
+
+<!-- Header -->
+<section class="bg-white border-b border-gray-100 py-14">
+  <div class="max-w-4xl mx-auto px-6">
+    <span class="text-primary-600 text-sm font-semibold">Dokumentasi Proyek</span>
+    <h1 class="text-4xl font-extrabold text-gray-900 mt-2 mb-4">Tentang CineGraph</h1>
+    <p class="text-gray-500 text-lg leading-relaxed">
+      Sistem rekomendasi film berbasis <strong class="text-gray-700">Knowledge Graph</strong> yang dibangun
+      sebagai proyek mata kuliah Kecerdasan Buatan. Berikut adalah penjelasan lengkap dataset,
+      pipeline, dan metodologi yang digunakan.
+    </p>
+  </div>
+</section>
+
+<div class="max-w-4xl mx-auto px-6 py-14 space-y-16">
+
+  <!-- Dataset -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+        <span class="text-xl">📦</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Dataset</h2>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-col md:flex-row gap-6">
+        <div class="flex-1">
+          <h3 class="font-semibold text-gray-800 mb-2">The Movies Dataset</h3>
+          <p class="text-gray-500 text-sm leading-relaxed mb-4">
+            Dataset resmi dari Kaggle yang berisi metadata lengkap ±45.000 film dari TMDB (The Movie Database).
+            Dataset ini mencakup informasi cast, crew, genre, keyword, rating, dan revenue.
+          </p>
+          <div class="flex flex-wrap gap-2">
+            {% for tag in ['Kaggle', 'TMDB', '45.000+ Film', 'Public Domain'] %}
+            <span class="bg-primary-50 text-primary-700 text-xs font-medium px-3 py-1 rounded-full">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="md:w-64 bg-gray-50 rounded-xl p-4">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">File yang Digunakan</p>
+          {% for f, desc in [
+            ('movies_metadata.csv', 'Info film utama'),
+            ('credits.csv', 'Cast & crew'),
+            ('keywords.csv', 'Keyword film'),
+          ] %}
+          <div class="flex items-start gap-2 mb-2">
+            <span class="text-primary-500 mt-0.5">📄</span>
+            <div>
+              <p class="text-xs font-medium text-gray-700">{{ f }}</p>
+              <p class="text-xs text-gray-400">{{ desc }}</p>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pipeline -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+        <span class="text-xl">⚙️</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Pipeline Proyek</h2>
+    </div>
+
+    <div class="space-y-4">
+      {% set pipeline = [
+        ('01', 'Data Collection & Seleksi Kolom', 'bg-blue-600',
+         [
+           'Load 7 file CSV dari The Movies Dataset',
+           'Seleksi kolom: id, title, genres, release_date, revenue (movies_metadata)',
+           'Seleksi kolom: id, cast, crew (credits)',
+           'Seleksi kolom: id, keywords (keywords)',
+           'Simpan ke folder dataset/ sebagai CSV bersih',
+         ],
+         'baca_data/potong_kolom.ipynb'),
+        ('02', 'Preprocessing & Parsing JSON', 'bg-indigo-600',
+         [
+           'Kolom genres, cast, crew, keywords berformat string JSON-like',
+           'Parse menggunakan ast.literal_eval() untuk konversi ke Python list',
+           'Ekstrak nama genre dari tiap dict dalam list',
+           'Ekstrak nama aktor top-5 berdasarkan urutan (order)',
+           'Filter crew dengan job == Director untuk sutradara',
+           'Ekstrak nama keyword dari tiap dict dalam list',
+           'Simpan sebagai movies_clean.csv, credits_clean.csv, keywords_clean.csv',
+         ],
+         'baca_data/step1_parsing.ipynb'),
+        ('03', 'Entity Construction', 'bg-violet-600',
+         [
+           'Bangun tabel Node: nodes_movie, nodes_actor, nodes_director, nodes_genre, nodes_keyword',
+           'Assign unique ID untuk setiap entitas',
+           'Bangun tabel Relationship: movie→actor, movie→director, movie→genre, movie→keyword',
+           'Tiap relationship berisi pasangan movie_id ↔ nama entitas',
+           'Simpan ke folder entity_construction/nodes/ dan /relationships/',
+         ],
+         'entity_construction/step2_entity_construction.ipynb'),
+        ('04', 'Graph Construction di Neo4j', 'bg-purple-600',
+         [
+           'Buat constraints UNIQUE untuk setiap label node',
+           'Import 5 jenis node menggunakan MERGE via Python neo4j driver',
+           'Import 4 jenis relationship: actedBy, directedBy, hasGenre, hasKeyword',
+           'Proses batch 500 rows per query untuk efisiensi memori',
+           'Verifikasi total node dan relationship setelah import',
+         ],
+         'graph_construction/step3_import_neo4j.ipynb'),
+        ('05', 'Query & Reasoning', 'bg-pink-600',
+         [
+           'Query film dengan aktor yang sama menggunakan Cypher MATCH pattern',
+           'Query film dengan genre + sutradara sama',
+           'shortestPath() untuk mencari jarak graph antara dua film',
+           'Analisis aktor paling produktif dan genre terpopuler',
+         ],
+         'query_reasoning/step4_query_reasoning.ipynb'),
+        ('06', 'Sistem Rekomendasi', 'bg-rose-600',
+         [
+           'Neighbor-based scoring: hitung kesamaan tetangga tiap kandidat film',
+           'Bobot: Sutradara×4, Aktor×3, Genre×2, Keyword×1',
+           'Gunakan OPTIONAL MATCH untuk menangani film tanpa beberapa relasi',
+           'Ranking berdasarkan total skor → ambil top-10',
+         ],
+         'rekomendasi/step5_rekomendasi.ipynb'),
+      ] %}
+
+      {% for num, title, color, points, notebook in pipeline %}
+      <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div class="flex items-center gap-4 px-6 py-4 border-b border-gray-100">
+          <span class="{{ color }} text-white text-xs font-bold px-2.5 py-1 rounded-lg">{{ num }}</span>
+          <h3 class="font-semibold text-gray-900">{{ title }}</h3>
+          <span class="ml-auto text-xs text-gray-400 font-mono hidden md:block">{{ notebook }}</span>
+        </div>
+        <div class="px-6 py-4">
+          <ul class="space-y-2">
+            {% for point in points %}
+            <li class="flex items-start gap-2 text-sm text-gray-600">
+              <svg class="w-4 h-4 text-primary-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+              </svg>
+              {{ point }}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Knowledge Graph -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+        <span class="text-xl">🕸️</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Struktur Knowledge Graph</h2>
+    </div>
+    <div class="grid md:grid-cols-2 gap-6">
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <h3 class="font-semibold text-gray-800 mb-4">Node (Entitas)</h3>
+        <div class="space-y-3">
+          {% for node, prop, color in [
+            ('Movie', 'movie_id, title, release_date, revenue', 'bg-blue-100 text-blue-700'),
+            ('Actor', 'name', 'bg-indigo-100 text-indigo-700'),
+            ('Director', 'name', 'bg-violet-100 text-violet-700'),
+            ('Genre', 'name', 'bg-green-100 text-green-700'),
+            ('Keyword', 'name', 'bg-gray-100 text-gray-700'),
+          ] %}
+          <div class="flex items-center gap-3">
+            <span class="{{ color }} text-xs font-bold px-2.5 py-1 rounded-lg w-24 text-center shrink-0">{{ node }}</span>
+            <span class="text-xs text-gray-500 font-mono">{{ prop }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <h3 class="font-semibold text-gray-800 mb-4">Edge (Relasi)</h3>
+        <div class="space-y-3">
+          {% for src, rel, tgt in [
+            ('Movie', 'actedBy', 'Actor'),
+            ('Movie', 'directedBy', 'Director'),
+            ('Movie', 'hasGenre', 'Genre'),
+            ('Movie', 'hasKeyword', 'Keyword'),
+          ] %}
+          <div class="flex items-center gap-2 text-sm font-mono">
+            <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs">{{ src }}</span>
+            <span class="text-gray-400">──</span>
+            <span class="bg-primary-600 text-white px-2 py-0.5 rounded text-xs">{{ rel }}</span>
+            <span class="text-gray-400">──▶</span>
+            <span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs">{{ tgt }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section>
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+        <span class="text-xl">🛠️</span>
+      </div>
+      <h2 class="text-2xl font-bold text-gray-900">Tech Stack</h2>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {% for tech, desc, color in [
+        ('Python', 'Pandas, ast, neo4j driver', 'border-yellow-200 bg-yellow-50'),
+        ('Neo4j', 'Graph Database & Cypher', 'border-blue-200 bg-blue-50'),
+        ('Flask', 'Web Framework', 'border-gray-200 bg-gray-50'),
+        ('Tailwind CSS', 'UI Styling', 'border-cyan-200 bg-cyan-50'),
+        ('Jupyter', 'Data Pipeline', 'border-orange-200 bg-orange-50'),
+        ('Kaggle', 'Data Source', 'border-teal-200 bg-teal-50'),
+        ('NetworkX', 'Graph Analysis', 'border-purple-200 bg-purple-50'),
+        ('Matplotlib', 'Visualisasi', 'border-red-200 bg-red-50'),
+      ] %}
+      <div class="{{ color }} border rounded-xl p-4">
+        <p class="font-semibold text-gray-800 text-sm">{{ tech }}</p>
+        <p class="text-gray-500 text-xs mt-0.5">{{ desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

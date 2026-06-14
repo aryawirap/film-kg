@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}{{ nama or 'Cari Sutradara' }} — CineGraph{% endblock %}
+
+{% block content %}
+
+<!-- Search Bar -->
+<div class="bg-white border-b border-gray-100 py-8">
+  <div class="max-w-6xl mx-auto px-6">
+    <form action="/sutradara" method="GET" class="flex gap-3 max-w-2xl">
+      <div class="relative flex-1">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" name="nama" id="sutradaraSearch" autocomplete="off"
+               value="{{ nama }}" placeholder="Cari nama sutradara..."
+               class="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200
+                      focus:border-primary-400 rounded-xl text-sm text-gray-800
+                      outline-none transition-colors">
+        <div id="sutradaraAC"
+             class="dropdown-auto absolute top-full left-0 right-0 mt-1 bg-white
+                    border border-gray-200 rounded-xl shadow-xl z-50 hidden overflow-hidden">
+        </div>
+      </div>
+      <button class="bg-primary-600 hover:bg-primary-700 text-white text-sm
+                     font-medium px-6 py-2.5 rounded-xl transition-colors">
+        Cari
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if nama and film_list %}
+<div class="max-w-6xl mx-auto px-6 py-10">
+  <div class="grid md:grid-cols-3 gap-8">
+
+    <!-- Sidebar -->
+    <div class="space-y-5">
+
+      <!-- Profile Card -->
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
+        <div class="w-24 h-24 bg-gradient-to-br from-amber-100 to-amber-200
+                    rounded-full flex items-center justify-center mx-auto mb-4">
+          <span class="text-4xl">🎥</span>
+        </div>
+        <h1 class="text-xl font-bold text-gray-900">{{ nama }}</h1>
+        <p class="text-gray-400 text-sm mt-1">{{ film_list | length }} film disutradarai</p>
+
+        {% if film_list %}
+        {% set total_rev = film_list | selectattr('revenue') | map(attribute='revenue') | select('gt', 0) | list %}
+        {% if total_rev %}
+        <div class="mt-3 pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-400">Total Revenue</p>
+          <p class="text-sm font-bold text-green-600">
+            ${{ "{:,.0f}".format(total_rev | sum) }}
+          </p>
+        </div>
+        {% endif %}
+        {% endif %}
+      </div>
+
+      <!-- Genre Favorit -->
+      {% if genre_stats %}
+      <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h2 class="font-semibold text-gray-900 text-sm">🏷️ Genre Favorit</h2>
+        </div>
+        <div class="p-4 space-y-3">
+          {% for item in genre_stats %}
+          {% set pct = (item.total / genre_stats[0].total * 100) | int %}
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <a href="/database/film?genre={{ item.nama | urlencode }}"
+                 class="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+                {{ item.nama }}
+              </a>
+              <span class="text-gray-400">{{ item.total }} film</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-1.5">
+              <div class="bg-primary-500 h-1.5 rounded-full" style="width:{{ pct }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Filmografi -->
+    <div class="md:col-span-2">
+      <h2 class="text-xl font-bold text-gray-900 mb-5">
+        🎬 Filmografi
+        <span class="text-primary-600">{{ nama }}</span>
+      </h2>
+
+      <div class="space-y-3">
+        {% for item in film_list %}
+        <a href="/film?judul={{ item.judul | urlencode }}"
+           class="group bg-white border border-gray-200 hover:border-primary-300
+                  rounded-xl p-4 flex items-start gap-4 transition-all hover:shadow-md block">
+
+          <!-- Icon -->
+          <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center
+                      shrink-0 group-hover:bg-amber-100 transition-colors">
+            <span class="text-lg">🎬</span>
+          </div>
+
+          <!-- Info -->
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900 group-hover:text-primary-600
+                      transition-colors truncate">
+              {{ item.judul }}
+            </p>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              {% for g in item.genre %}
+              <span class="bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">
+                {{ g }}
+              </span>
+              {% endfor %}
+            </div>
+            {% if item.aktor %}
+            <p class="text-xs text-gray-400 mt-1 truncate">
+              🎭 {{ item.aktor[:3] | join(', ') }}
+              {% if item.aktor | length > 3 %}+{{ item.aktor | length - 3 }} lainnya{% endif %}
+            </p>
+            {% endif %}
+          </div>
+
+          <!-- Kanan -->
+          <div class="text-right shrink-0">
+            <p class="text-sm text-gray-400">
+              {{ item.tahun[:4] if item.tahun else '—' }}
+            </p>
+            {% if item.revenue and item.revenue > 0 %}
+            <p class="text-xs text-green-600 font-medium mt-0.5">
+              ${{ "{:,.0f}".format(item.revenue / 1000000) }}M
+            </p>
+            {% endif %}
+          </div>
+
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% elif nama %}
+<div class="max-w-lg mx-auto px-6 py-20 text-center">
+  <div class="text-5xl mb-4">🎥</div>
+  <p class="text-gray-500">
+    Sutradara <strong class="text-gray-800">"{{ nama }}"</strong> tidak ditemukan.
+  </p>
+  <a href="/database/sutradara"
+     class="inline-block mt-4 text-primary-600 hover:text-primary-700 text-sm font-medium">
+    ← Kembali ke daftar sutradara
+  </a>
+</div>
+
+{% else %}
+<div class="max-w-lg mx-auto px-6 py-20 text-center">
+  <div class="text-5xl mb-4">🔍</div>
+  <p class="text-gray-500">Ketik nama sutradara di atas untuk melihat filmografinya.</p>
+  <a href="/database/sutradara"
+     class="inline-block mt-4 text-primary-600 hover:text-primary-700 text-sm font-medium">
+    Lihat semua sutradara →
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  setupAC('sutradaraSearch', 'sutradaraAC', '/cari-sutradara',
+          n => `/sutradara?nama=${encodeURIComponent(n)}`);
+</script>
+{% endblock %}

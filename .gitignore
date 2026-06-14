@@ -1,0 +1,34 @@
+# Archive / binary
+archive.zip
+
+# Large raw dataset files (>100MB, melebihi batas GitHub)
+database/ratings.csv
+database/credits.csv
+dataset/credits.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

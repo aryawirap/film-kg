@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Eksplorasi — Film KG{% endblock %}
+
+{% block content %}
+
+<h1 class="text-2xl font-bold text-white mb-2">📊 Eksplorasi</h1>
+<p class="text-gray-500 mb-8">Top 10 genre, aktor, dan sutradara berdasarkan jumlah film.</p>
+
+<div class="grid md:grid-cols-3 gap-6">
+
+  <!-- Top Genre -->
+  <div class="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
+    <div class="px-5 py-4 border-b border-surface-border flex items-center gap-2">
+      <span class="text-xl">🏷️</span>
+      <h2 class="font-semibold text-white">Top Genre</h2>
+    </div>
+    <div class="p-4 flex flex-col gap-2">
+      {% for item in genre %}
+      {% set pct = (item.total / genre[0].total * 100) | int %}
+      <div>
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-300">{{ loop.index }}. {{ item.nama }}</span>
+          <span class="text-green-400 font-medium">{{ item.total }}</span>
+        </div>
+        <div class="w-full bg-surface-hover rounded-full h-1.5">
+          <div class="bg-green-500 h-1.5 rounded-full" style="width: {{ pct }}%"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Top Aktor -->
+  <div class="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
+    <div class="px-5 py-4 border-b border-surface-border flex items-center gap-2">
+      <span class="text-xl">🎭</span>
+      <h2 class="font-semibold text-white">Top Aktor</h2>
+    </div>
+    <div class="divide-y divide-surface-border">
+      {% for item in aktor %}
+      <a href="/aktor?nama={{ item.nama | urlencode }}"
+         class="flex items-center justify-between px-5 py-3 hover:bg-surface-hover transition-colors group">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="text-gray-600 text-xs font-mono w-4 shrink-0">{{ '%02d' % loop.index }}</span>
+          <span class="text-gray-300 text-sm group-hover:text-brand transition-colors truncate">
+            {{ item.nama }}
+          </span>
+        </div>
+        <span class="text-xs bg-blue-900/40 text-blue-400 px-2.5 py-0.5 rounded-full shrink-0 ml-2">
+          {{ item.total }} film
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Top Sutradara -->
+  <div class="bg-surface-card border border-surface-border rounded-2xl overflow-hidden">
+    <div class="px-5 py-4 border-b border-surface-border flex items-center gap-2">
+      <span class="text-xl">🎥</span>
+      <h2 class="font-semibold text-white">Top Sutradara</h2>
+    </div>
+    <div class="divide-y divide-surface-border">
+      {% for item in sutradara %}
+      <div class="flex items-center justify-between px-5 py-3 hover:bg-surface-hover transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="text-gray-600 text-xs font-mono w-4 shrink-0">{{ '%02d' % loop.index }}</span>
+          <span class="text-gray-300 text-sm truncate">{{ item.nama }}</span>
+        </div>
+        <span class="text-xs bg-amber-900/40 text-amber-400 px-2.5 py-0.5 rounded-full shrink-0 ml-2">
+          {{ item.total }} film
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

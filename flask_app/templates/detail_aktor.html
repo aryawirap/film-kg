@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}{{ nama or 'Cari Aktor' }} — CineGraph{% endblock %}
+
+{% block content %}
+<div class="bg-white border-b border-gray-100 py-8">
+  <div class="max-w-6xl mx-auto px-6">
+    <form action="/aktor" method="GET" class="flex gap-3 max-w-2xl">
+      <div class="relative flex-1">
+        <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input type="text" name="nama" id="aktorSearch" autocomplete="off"
+               value="{{ nama }}" placeholder="Cari nama aktor..."
+               class="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 focus:border-primary-400 rounded-xl text-sm text-gray-800 outline-none transition-colors">
+        <div id="aktorAC" class="dropdown-auto absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 hidden overflow-hidden"></div>
+      </div>
+      <button class="bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors">Cari</button>
+    </form>
+  </div>
+</div>
+
+{% if nama and film_list %}
+<div class="max-w-6xl mx-auto px-6 py-10">
+  <div class="grid md:grid-cols-3 gap-8">
+
+    <!-- Sidebar -->
+    <div class="space-y-5">
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center shadow-sm">
+        <div class="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mx-auto mb-4">
+          <span class="text-4xl">🎭</span>
+        </div>
+        <h1 class="text-xl font-bold text-gray-900">{{ nama }}</h1>
+        <p class="text-gray-400 text-sm mt-1">{{ film_list|length }} film dalam database</p>
+      </div>
+
+      {% if co_aktor %}
+      <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div class="px-5 py-4 border-b border-gray-100">
+          <h2 class="font-semibold text-gray-900 text-sm">👥 Sering Berkolaborasi</h2>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for item in co_aktor %}
+          <a href="/aktor?nama={{ item.nama | urlencode }}"
+             class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors group">
+            <span class="text-sm text-gray-700 group-hover:text-primary-600 transition-colors">{{ item.nama }}</span>
+            <span class="text-xs bg-primary-50 text-primary-600 font-semibold px-2.5 py-0.5 rounded-full">{{ item.bareng }}×</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Filmografi -->
+    <div class="md:col-span-2">
+      <h2 class="text-xl font-bold text-gray-900 mb-5">🎬 Filmografi</h2>
+      <div class="space-y-3">
+        {% for item in film_list %}
+        <a href="/film?judul={{ item.judul | urlencode }}"
+           class="group bg-white border border-gray-200 hover:border-primary-300 rounded-xl p-4 flex items-start gap-4 transition-all hover:shadow-md block">
+          <div class="w-10 h-10 bg-primary-50 rounded-xl flex items-center justify-center shrink-0 group-hover:bg-primary-100 transition-colors">
+            <span class="text-lg">🎬</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900 group-hover:text-primary-600 transition-colors truncate">{{ item.judul }}</p>
+            <div class="flex flex-wrap gap-1.5 mt-1">
+              {% for g in item.genre %}
+              <span class="bg-primary-50 text-primary-700 text-xs px-2 py-0.5 rounded-full">{{ g }}</span>
+              {% endfor %}
+            </div>
+            {% if item.sutradara %}
+            <p class="text-xs text-gray-400 mt-1">🎥 {{ item.sutradara | join(', ') }}</p>
+            {% endif %}
+          </div>
+          <span class="text-sm text-gray-400 shrink-0">{{ item.tahun[:4] if item.tahun else '—' }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{% elif nama %}
+<div class="max-w-lg mx-auto px-6 py-20 text-center">
+  <div class="text-5xl mb-4">🎭</div>
+  <p class="text-gray-500">Aktor <strong class="text-gray-800">"{{ nama }}"</strong> tidak ditemukan.</p>
+</div>
+{% else %}
+<div class="max-w-lg mx-auto px-6 py-20 text-center">
+  <div class="text-5xl mb-4">🔍</div>
+  <p class="text-gray-500">Ketik nama aktor di atas untuk melihat filmografi.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  setupAC('aktorSearch', 'aktorAC', '/cari-aktor', n => `/aktor?nama=${encodeURIComponent(n)}`);
+</script>
+{% endblock %}
